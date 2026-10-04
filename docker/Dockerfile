@@ -15,6 +15,7 @@ RUN apt-get update \
        websockify \
        x11-utils \
        ca-certificates \
+       python3 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

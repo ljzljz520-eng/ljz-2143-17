@@ -23,3 +23,8 @@ __pycache__/
 *.log
 .env
 .env.*
+visual-window-app
+tests/test_input_core
+data/*.sqlite3
+data/*.sqlite3-*
+logs/*.jsonl

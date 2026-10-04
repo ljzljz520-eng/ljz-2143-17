@@ -6,4 +6,23 @@ services:
     container_name: visual-window-app
     ports:
       - "6080:6080"
+    environment:
+      POLICY_URL: http://policy:8090
+      DEVICE_ID: local-vnc-device
+    depends_on:
+      - policy
     restart: "no"
+
+  policy:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    command: ["python3", "/app/service/policy_server.py"]
+    ports:
+      - "8090:8090"
+    volumes:
+      - policy-data:/app/data
+    restart: "no"
+
+volumes:
+  policy-data:

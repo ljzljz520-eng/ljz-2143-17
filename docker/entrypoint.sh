@@ -64,7 +64,7 @@ else
 fi
 NOVNC_PID=$!
 
-./visual-window-app &
+POLICY_URL="${POLICY_URL:-}" DEVICE_ID="${DEVICE_ID:-local-vnc-device}" ./visual-window-app &
 APP_PID=$!
 
 wait "${APP_PID}"

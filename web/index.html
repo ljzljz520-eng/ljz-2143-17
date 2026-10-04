@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>输入策略管理</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    body { margin: 0; background: #0b1220; color: #e5edf8; }
+    main { max-width: 980px; margin: 0 auto; padding: 32px 20px 60px; }
+    h1 { margin: 0 0 8px; font-size: 28px; }
+    .muted { color: #9fb0c7; line-height: 1.6; }
+    .card { background: #111c2f; border: 1px solid #263957; border-radius: 14px; padding: 20px; margin: 18px 0; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px 18px; }
+    label { display: grid; gap: 6px; font-size: 13px; color: #b8c8dd; }
+    input, select, textarea, button { font: inherit; }
+    input, select, textarea { box-sizing: border-box; width: 100%; border: 1px solid #344966; background: #0a1222; color: #e5edf8; border-radius: 8px; padding: 10px; }
+    input[readonly] { color: #8ea3bd; background: #0d1728; }
+    textarea { min-height: 230px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+    button { border: 0; border-radius: 9px; padding: 10px 14px; background: #2f8cff; color: white; cursor: pointer; }
+    button.secondary { background: #273953; }
+    button + button { margin-left: 8px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid #24354f; font-size: 13px; }
+    .badge { display: inline-block; border-radius: 999px; padding: 3px 9px; background: #20334e; color: #a9d4ff; font-size: 12px; }
+    .error { color: #ff9b9b; white-space: pre-wrap; }
+    .ok { color: #87e0a2; }
+    .warning { border-left: 4px solid #f0b94b; padding-left: 12px; color: #f6d28b; }
+    code { color: #b7e5ff; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>C 窗口输入策略管理</h1>
+  <p class="muted">
+    受保护物理键 <code>Esc</code>、<code>F11</code>、<code>方向键</code> 保留固定角色；
+    网页只能配置恢复背景键和允许的移动别名。<code>Ctrl+Shift+Q</code> 是始终保留的安全退出键，不进入策略包。
+  </p>
+
+  <section class="card">
+    <h2>策略映射</h2>
+    <div class="grid">
+      <label>恢复背景键
+        <select id="restoreKey">
+          <option value="KeyR">R</option>
+          <option value="KeyB">B</option>
+          <option value="Backspace">Backspace</option>
+        </select>
+      </label>
+      <label>左移别名
+        <select id="leftAlias"><option value="">仅方向键</option><option value="KeyA">A</option></select>
+      </label>
+      <label>右移别名
+        <select id="rightAlias"><option value="">仅方向键</option><option value="KeyD">D</option></select>
+      </label>
+      <label>上移别名
+        <select id="upAlias"><option value="">仅方向键</option><option value="KeyW">W</option></select>
+      </label>
+      <label>下移别名
+        <select id="downAlias"><option value="">仅方向键</option><option value="KeyS">S</option></select>
+      </label>
+      <label>场景宽度 <input id="width" type="number" min="73" value="1280" /></label>
+      <label>场景高度 <input id="height" type="number" min="73" value="720" /></label>
+      <label>首次重复延迟 ms <input id="initial" type="number" min="50" max="2000" value="180" /></label>
+      <label>连续重复间隔 ms <input id="interval" type="number" min="10" max="500" value="45" /></label>
+      <label>每步像素 <input id="step" type="number" min="1" max="128" value="8" /></label>
+    </div>
+    <p class="warning">
+      中文输入法组合态期间所有物理键先交给 IME；全屏只在非重复的按下边沿切换。
+      新策略若在旧键按住时到达，会先保持旧映射，直到旧物理键全部抬起或窗口失焦清键后再启用。
+    </p>
+    <p>
+      <button id="validateBtn" class="secondary">检查冲突</button>
+      <button id="saveBtn">发布新代次</button>
+      <button id="loadBtn" class="secondary">刷新当前策略</button>
+    </p>
+    <p id="policyStatus" class="muted"></p>
+    <table>
+      <thead><tr><th>物理键</th><th>修饰键</th><th>命令</th><th>保护级别</th></tr></thead>
+      <tbody id="bindingsPreview"></tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>实验输入回放沙箱</h2>
+    <p class="muted">
+      仅接受日志 manifest 中 <code>trust=experiment</code> 的哈希链日志。
+      回放只重建实验输入，不调用、伪造或补录现场人员的业务确认。
+    </p>
+    <textarea id="replayLog" placeholder="粘贴 experiment JSONL 日志"></textarea>
+    <p><button id="replayBtn">提交回放校验</button></p>
+    <p id="replayStatus" class="muted"></p>
+  </section>
+</main>
+
+<script>
+const protectedBindings = [
+  ["Escape", "modal.cancel"], ["F11", "fullscreen.toggle"],
+  ["ArrowLeft", "move.left"], ["ArrowRight", "move.right"],
+  ["ArrowUp", "move.up"], ["ArrowDown", "move.down"]
+];
+
+function value(id) { return document.getElementById(id).value; }
+
+function buildPolicy() {
+  const bindings = protectedBindings.map(([key, command]) => ({
+    key, modifiers: 0, command, alias: false
+  }));
+  bindings.push({key: value("restoreKey"), modifiers: 0, command: "background.restore", alias: false});
+  const aliases = [
+    ["leftAlias", "move.left"], ["rightAlias", "move.right"],
+    ["upAlias", "move.up"], ["downAlias", "move.down"]
+  ];
+  for (const [id, command] of aliases) {
+    const key = value(id);
+    if (key) bindings.push({key, modifiers: 0, command, alias: true});
+  }
+  return {
+    generation: 0,
+    scene_width: Number(value("width")),
+    scene_height: Number(value("height")),
+    repeat: {
+      initial_ms: Number(value("initial")),
+      interval_ms: Number(value("interval")),
+      step_pixels: Number(value("step"))
+    },
+    bindings
+  };
+}
+
+function renderPreview(policy) {
+  const body = document.getElementById("bindingsPreview");
+  body.innerHTML = "";
+  for (const b of policy.bindings) {
+    const tr = document.createElement("tr");
+    const protectedRole = protectedBindings.some(([key, cmd]) => key === b.key && cmd === b.command);
+    tr.innerHTML = `<td><code>${b.key}</code></td><td>${b.modifiers}</td><td>${b.command}</td>` +
+      `<td><span class="badge">${protectedRole ? "固定保留" : (b.alias ? "允许别名" : "可配置")}</span></td>`;
+    body.appendChild(tr);
+  }
+}
+
+async function postJson(url, value) {
+  const response = await fetch(url, {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(value)
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+  return data;
+}
+
+async function validatePolicy() {
+  const policy = buildPolicy();
+  renderPreview(policy);
+  await postJson("/api/policy/validate", policy);
+  document.getElementById("policyStatus").className = "ok";
+  document.getElementById("policyStatus").textContent = "保留键和冲突检查通过";
+}
+
+document.getElementById("validateBtn").onclick = async () => {
+  try { await validatePolicy(); } catch (err) {
+    const el = document.getElementById("policyStatus");
+    el.className = "error"; el.textContent = err.message;
+  }
+};
+
+document.getElementById("saveBtn").onclick = async () => {
+  try {
+    await validatePolicy();
+    const envelope = await postJson("/api/policies", buildPolicy());
+    const el = document.getElementById("policyStatus");
+    el.className = "ok";
+    el.textContent = `已发布第 ${envelope.generation} 代；SHA-256=${envelope.sha256}`;
+  } catch (err) {
+    const el = document.getElementById("policyStatus");
+    el.className = "error"; el.textContent = err.message;
+  }
+};
+
+document.getElementById("loadBtn").onclick = async () => {
+  try {
+    const envelope = await (await fetch("/api/policy/current")).json();
+    const policy = JSON.parse(envelope.payload);
+    document.getElementById("width").value = policy.scene_width;
+    document.getElementById("height").value = policy.scene_height;
+    document.getElementById("initial").value = policy.repeat.initial_ms;
+    document.getElementById("interval").value = policy.repeat.interval_ms;
+    document.getElementById("step").value = policy.repeat.step_pixels;
+    const restore = policy.bindings.find(b => b.command === "background.restore" && !b.alias);
+    document.getElementById("restoreKey").value = restore.key;
+    const aliasIds = {"move.left":"leftAlias","move.right":"rightAlias","move.up":"upAlias","move.down":"downAlias"};
+    for (const [cmd, id] of Object.entries(aliasIds)) {
+      const alias = policy.bindings.find(b => b.command === cmd && b.alias);
+      document.getElementById(id).value = alias ? alias.key : "";
+    }
+    renderPreview(policy);
+    document.getElementById("policyStatus").className = "ok";
+    document.getElementById("policyStatus").textContent = `已载入第 ${policy.generation} 代策略`;
+  } catch (err) {
+    const el = document.getElementById("policyStatus");
+    el.className = "error"; el.textContent = err.message;
+  }
+};
+
+document.getElementById("replayBtn").onclick = async () => {
+  const el = document.getElementById("replayStatus");
+  try {
+    const result = await postJson("/api/replay-sessions", {
+      trust: "experiment",
+      log: document.getElementById("replayLog").value
+    });
+    el.className = "ok";
+    el.textContent = `回放实验已登记：${result.session_id}；不会产生现场业务确认。`;
+  } catch (err) {
+    el.className = "error"; el.textContent = err.message;
+  }
+};
+
+renderPreview(buildPolicy());
+</script>
+</body>
+</html>
