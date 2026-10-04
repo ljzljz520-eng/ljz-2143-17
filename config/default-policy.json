@@ -1,0 +1,18 @@
+{
+  "generation": 1,
+  "bounds_w": 1280,
+  "bounds_h": 720,
+  "move_initial_delay_ms": 350,
+  "move_repeat_ms": 60,
+  "move_max_hold_ms": 3000,
+  "bindings": [
+    { "chord": "Esc", "command": "open_settings" },
+    { "chord": "F11", "command": "toggle_fullscreen" },
+    { "chord": "Ctrl+R", "command": "restore_background" },
+    { "chord": "ArrowLeft", "command": "move_left" },
+    { "chord": "ArrowRight", "command": "move_right" },
+    { "chord": "ArrowUp", "command": "move_up" },
+    { "chord": "ArrowDown", "command": "move_down" },
+    { "chord": "Enter", "command": "confirm_business" }
+  ]
+}

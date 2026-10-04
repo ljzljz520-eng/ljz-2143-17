@@ -1,9 +1,15 @@
 services:
-  visual-window-app:
+  kiosk:
     build:
       context: .
       dockerfile: docker/Dockerfile
-    container_name: visual-window-app
     ports:
-      - "6080:6080"
-    restart: "no"
+      - "6080:6080"   # noVNC：浏览器操作真实 C 窗口
+      - "8080:8080"   # 策略服务 + 网页配置台
+    environment:
+      INPUT_STRATEGY_URL: "http://127.0.0.1:8080"
+      INPUT_STRATEGY_DEVICE: "dev-001"
+      INPUT_STRATEGY_PORT: "8080"
+    volumes:
+      - ./data:/app/data
+      - ./service/data:/app/service/data

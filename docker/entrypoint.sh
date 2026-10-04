@@ -8,7 +8,7 @@ NOVNC_PORT="6080"
 
 cleanup() {
   local code=$?
-  for pid in "${APP_PID:-}" "${NOVNC_PID:-}" "${VNC_PID:-}" "${WM_PID:-}" "${XVFB_PID:-}"; do
+  for pid in "${APP_PID:-}" "${SVC_PID:-}" "${NOVNC_PID:-}" "${VNC_PID:-}" "${WM_PID:-}" "${XVFB_PID:-}"; do
     if [[ -n "${pid}" ]] && kill -0 "${pid}" 2>/dev/null; then
       kill "${pid}" 2>/dev/null || true
       wait "${pid}" 2>/dev/null || true
@@ -64,6 +64,17 @@ else
 fi
 NOVNC_PID=$!
 
+# 输入策略服务 + 网页配置台（:8080）
+cd /app
+INPUT_STRATEGY_PORT="${INPUT_STRATEGY_PORT:-8080}"
+python3 -m service.server --db /app/service/data/strategy.db \
+    --host 0.0.0.0 --port "${INPUT_STRATEGY_PORT}" --seed-device dev-001 \
+    >/tmp/strategy.log 2>&1 &
+SVC_PID=$!
+
+mkdir -p /app/data
+INPUT_STRATEGY_URL="http://127.0.0.1:${INPUT_STRATEGY_PORT}" \
+INPUT_STRATEGY_DEVICE="dev-001" \
 ./visual-window-app &
 APP_PID=$!
 

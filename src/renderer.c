@@ -2,6 +2,8 @@
 
 #include <stdio.h>
 
+/* Present 由上层统一调用，避免在 UI 叠加层之前提前翻页。 */
+
 #include <SDL2/SDL_image.h>
 
 bool renderer_load_background(
@@ -47,8 +49,7 @@ void renderer_draw_background(
     if (scene != NULL && scene->background != NULL) {
         SDL_RenderCopy(renderer, scene->background, NULL, &dst_rect);
     }
-
-    SDL_RenderPresent(renderer);
+    /* 调用方（main.c 的 UI 合成层）负责 SDL_RenderPresent。 */
 }
 
 void renderer_destroy(SceneRenderer *scene) {

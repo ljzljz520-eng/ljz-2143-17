@@ -15,13 +15,16 @@ RUN apt-get update \
        websockify \
        x11-utils \
        ca-certificates \
+       python3 \
+       curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY . /app
-RUN chmod +x /app/docker/entrypoint.sh && make
+RUN chmod +x /app/docker/entrypoint.sh && make && make replay_tool
+RUN cd /app && make test
 
-EXPOSE 6080
+EXPOSE 6080 8080
 
 CMD ["/app/docker/entrypoint.sh"]

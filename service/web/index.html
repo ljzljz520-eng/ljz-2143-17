@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>输入策略配置台 · input-strategy</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<!-- data-app: 标记身份（测试断言用 input-strategy） -->
+<div id="app" data-app="input-strategy">
+  <header>
+    <h1>输入策略配置台</h1>
+    <div class="device-bar">
+      <label>设备
+        <input id="device-id" value="dev-001" size="10">
+      </label>
+      <button id="btn-refresh">刷新状态</button>
+      <span id="device-status" class="muted"></span>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button data-tab="map" class="active">映射配置</button>
+    <button data-tab="gens">代次与回执</button>
+    <button data-tab="replay">实验重放</button>
+    <button data-tab="confirms">现场确认</button>
+  </nav>
+
+  <!-- ========== 映射配置 ========== -->
+  <section id="tab-map" class="tab active">
+    <div class="hint">
+      展示层快捷键映射。<b>Esc / F11 / 方向键 / 恢复背景</b>等均在此配置。
+      保留键 <code>Ctrl+Q</code>、<code>Meta+Q(Cmd+Q)</code>、<code>Alt+F4</code>
+      永远用于可靠退出，不可映射；模态面板的 <code>Esc</code> 固定为关闭。
+    </div>
+
+    <h2>快捷键映射</h2>
+    <table id="bindings-table">
+      <thead><tr><th>动作</th><th>和弦（物理位置名，如 F11 / Ctrl+R）</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="row">
+      <button id="btn-reset-default">恢复出厂默认</button>
+      <button id="btn-validate">校验</button>
+      <button id="btn-publish" class="primary">发布为新代次</button>
+    </div>
+    <div id="validate-result" class="result"></div>
+
+    <h2>连发与边界参数</h2>
+    <div class="grid">
+      <label>初始延迟 ms <input type="number" id="p-delay" min="10" max="1000"></label>
+      <label>连发间隔 ms <input type="number" id="p-repeat" min="10" max="500"></label>
+      <label>最大保持 ms <input type="number" id="p-hold" min="100" max="10000"></label>
+      <label>视口宽 <input type="number" id="p-w" min="100" max="10000"></label>
+      <label>视口高 <input type="number" id="p-h" min="100" max="10000"></label>
+    </div>
+  </section>
+
+  <!-- ========== 代次与回执 ========== -->
+  <section id="tab-gens" class="tab">
+    <h2>策略代次</h2>
+    <table id="gens-table">
+      <thead><tr><th>代次</th><th>digest</th><th>发布时间</th><th>来源</th><th>状态</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <h2>设备回执</h2>
+    <table id="receipts-table">
+      <thead><tr><th>代次</th><th>结果</th><th>合成抬起键数</th><th>原因</th><th>时间</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <!-- ========== 实验重放 ========== -->
+  <section id="tab-replay" class="tab">
+    <div class="hint warn">
+      重放只能<b>复现实验输入</b>：重放来源的 <code>confirm_business</code>
+      会被安全闸拦截，<b>不会</b>写入现场业务确认。
+    </div>
+    <h2>构造输入序列</h2>
+    <div class="row">
+      <select id="ev-type">
+        <option value="key">按键</option>
+        <option value="focus_lost">失焦</option>
+        <option value="composition">IME 组合</option>
+      </select>
+      <input id="ev-key" placeholder="键名，如 F11 / ArrowLeft / Enter / Esc" size="28">
+      <label><input type="checkbox" id="ev-down" checked> 按下</label>
+      <label><input type="checkbox" id="ev-repeat"> 自动重复</label>
+      <label><input type="checkbox" id="ev-composition"> 组合态</label>
+      <input id="ev-mods" placeholder="修饰，如 Ctrl 或 Ctrl+Shift" size="16">
+      <label>t(ms) <input id="ev-t" type="number" value="0" style="width:90px"></label>
+      <button id="btn-add-event">加入序列</button>
+      <button id="btn-clear-events">清空</button>
+    </div>
+    <table id="events-table">
+      <thead><tr><th>t(ms)</th><th>类型</th><th>键/内容</th><th>按下</th><th>重复</th><th>组合态</th><th>修饰</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="row">
+      <label>重放所用策略代次
+        <input id="replay-gen" type="number" placeholder="留空=出厂默认" style="width:120px">
+      </label>
+      <button id="btn-run-replay" class="primary">运行实验重放</button>
+    </div>
+    <div class="row">
+      <h3>上传设备日志（.islog）</h3>
+      <input type="file" id="journal-file">
+      <button id="btn-upload-journal">上传并重放</button>
+    </div>
+    <h2>重放结果（命令序列）</h2>
+    <div id="replay-result" class="result"></div>
+  </section>
+
+  <!-- ========== 现场确认 ========== -->
+  <section id="tab-confirms" class="tab">
+    <div class="hint">
+      仅展示来自 <b>ORIGIN=human</b> 的真人确认。重放/远程无法写入此表。
+    </div>
+    <table id="confirms-table">
+      <thead><tr><th>id</th><th>代次</th><th>时间</th><th>来源</th><th>详情</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+</div>
+<script src="/app.js"></script>
+</body>
+</html>
